@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,20 +21,21 @@ import (
 //
 // Backends:
 //   - aac:   calls `aac run --domain <key_ref> --user <username> --output json`
-//            (or --env SSH_KEY=<field>) and parses the credential. Requires
-//            AAC_TOKEN env var on the truenas-mcp process.
+//     (or --env SSH_KEY=<field>) and parses the credential. Requires
+//     AAC_TOKEN env var on the truenas-mcp process.
 //   - bw:    calls `bw get item <key_ref>` and extracts the ssh key from a
-//            custom field named "sshkey" (or "ssh_public_key", "pubkey").
-//            Requires BW_PASSWORD + logged-in bw CLI.
+//     custom field named "sshkey" (or "ssh_public_key", "pubkey").
+//     Requires BW_PASSWORD + logged-in bw CLI.
 //   - file:  reads the key from a path on disk (gitignored). Useful for
-//            air-gapped setups. Path must be absolute.
+//     air-gapped setups. Path must be absolute.
 //
 // args:
-//   username (required) - TrueNAS user to update
-//   backend  (default aac) - aac | bw | file
-//   key_ref  (required) - domain (aac), item name/id (bw), or path (file)
-//   field    (optional) - credential field name for aac/bw (default: sshkey)
-//   dry_run  (optional)
+//
+//	username (required) - TrueNAS user to update
+//	backend  (default aac) - aac | bw | file
+//	key_ref  (required) - domain (aac), item name/id (bw), or path (file)
+//	field    (optional) - credential field name for aac/bw (default: sshkey)
+//	dry_run  (optional)
 func handleSyncSSHKey(client *truenas.Client, args map[string]interface{}) (string, error) {
 	username, ok := args["username"].(string)
 	if !ok || username == "" {
@@ -100,12 +102,12 @@ func handleSyncSSHKey(client *truenas.Client, args map[string]interface{}) (stri
 
 	// 4. Return only fingerprint + success. Never the key.
 	response := map[string]interface{}{
-		"success":             true,
-		"username":            username,
-		"sshpubkey_set":       true,
+		"success":               true,
+		"username":              username,
+		"sshpubkey_set":         true,
 		"sshpubkey_fingerprint": sshFingerprint(pubKey),
-		"backend":             backend,
-		"note":                "Key fetched blind and pushed to TrueNAS. Key material not exposed.",
+		"backend":               backend,
+		"note":                  "Key fetched blind and pushed to TrueNAS. Key material not exposed.",
 	}
 
 	formatted, err := json.MarshalIndent(response, "", "  ")
@@ -137,7 +139,7 @@ func fetchKeyViaAAC(domain, field, username string) (string, error) {
 	aacPath, err := exec.LookPath("aac")
 	if err != nil {
 		// Fall back to known install location.
-		alt := `C:\Users\jakey\git\vaultwarden-stack\agent-access\bin\aac.exe`
+		alt := filepath.Join(os.Getenv("USERPROFILE"), ".access-protocol", "bin", "aac.exe")
 		if _, statErr := os.Stat(alt); statErr == nil {
 			aacPath = alt
 		} else {
